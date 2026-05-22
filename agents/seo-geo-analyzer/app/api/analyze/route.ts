@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   // 병렬 분석
   const [seo, geo, ranking] = await Promise.all([
     analyzeSeo(targetUrl, html),
-    analyzeGeo(targetUrl, html, process.env.ANTHROPIC_API_KEY),
+    analyzeGeo(targetUrl, html, process.env.GOOGLE_GEMINI_API_KEY),
     analyzeRanking(domain, 'other'),
   ]);
 

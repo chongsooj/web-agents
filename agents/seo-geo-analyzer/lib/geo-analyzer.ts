@@ -70,26 +70,21 @@ export async function analyzeGeo(url: string, html: string, apiKey?: string): Pr
 
   const score = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length);
 
-  // Industry classification via Claude
+  // Industry classification via Gemini Flash
   let industry = '기타', industryEn = 'other', summary = '';
   if (apiKey) {
     try {
-      const { Anthropic } = await import('@anthropic-ai/sdk');
-      const client = new Anthropic({ apiKey });
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const bodySnippet = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 1000);
-      const res = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        messages: [{
-          role: 'user',
-          content: `다음 웹사이트 내용을 보고 JSON으로만 답하세요. 절대 다른 텍스트 없이 JSON만:
+      const prompt = `다음 웹사이트 내용을 보고 JSON으로만 답하세요. 절대 다른 텍스트 없이 JSON만:
 {"industry":"한국어 산업명(예:전자상거래,금융,의료,교육,여행,부동산,음식,패션,IT/SaaS,미디어,법률,제조)","industryEn":"english_key","summary":"사이트 한 줄 설명(한국어 30자 이내)"}
 
 URL: ${url}
-내용: ${bodySnippet}`
-        }]
-      });
-      const text = (res.content[0] as { type: string; text: string }).text.trim();
+내용: ${bodySnippet}`;
+      const result = await model.generateContent(prompt);
+      const text = result.response.text().trim().replace(/^```json\n?|```$/g, '');
       const parsed = JSON.parse(text);
       industry = parsed.industry || '기타';
       industryEn = parsed.industryEn || 'other';
