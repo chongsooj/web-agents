@@ -22,23 +22,24 @@ export interface Competitor {
   isAbove: boolean; // 분석 사이트보다 위
 }
 
-// OpenPageRank API (무료)
-async function fetchOpenPageRank(domain: string): Promise<{ opr: number; rank: number | null }> {
+// OpenPageRank API (무료) — 여러 도메인 한번에 조회
+async function fetchOpenPageRankBatch(domains: string[]): Promise<Record<string, { opr: number; rank: number | null }>> {
+  const result: Record<string, { opr: number; rank: number | null }> = {};
+  domains.forEach(d => { result[d] = { opr: 0, rank: null }; });
   try {
+    const query = domains.map(d => `domains[]=${encodeURIComponent(d)}`).join('&');
     const res = await fetch(
-      `https://openpagerank.com/api/v1.0/getPageRank?domains[]=${domain}`,
-      { headers: { 'API-OPR': process.env.OPEN_PAGE_RANK_API_KEY || '' }, signal: AbortSignal.timeout(5000) }
+      `https://openpagerank.com/api/v1.0/getPageRank?${query}`,
+      { headers: { 'API-OPR': process.env.OPEN_PAGE_RANK_API_KEY || '' }, signal: AbortSignal.timeout(8000) }
     );
-    if (!res.ok) return { opr: 0, rank: null };
+    if (!res.ok) return result;
     const data = await res.json();
-    const item = data.response?.[0];
-    return {
-      opr: item?.page_rank_decimal ?? 0,
-      rank: item?.rank ?? null,
-    };
-  } catch {
-    return { opr: 0, rank: null };
-  }
+    for (const item of data.response ?? []) {
+      const d = item.domain;
+      if (d) result[d] = { opr: item.page_rank_decimal ?? 0, rank: item.rank ?? null };
+    }
+  } catch {}
+  return result;
 }
 
 // 산업군별 주요 사이트 DB (랭킹 비교용)
@@ -95,7 +96,15 @@ const INDUSTRY_COMPETITORS: Record<string, Competitor[]> = {
 };
 
 export async function analyzeRanking(domain: string, industryEn: string): Promise<RankingResult> {
-  const { opr, rank } = await fetchOpenPageRank(domain);
+  // 산업군 경쟁사 목록
+  const industryKey = industryEn in INDUSTRY_COMPETITORS ? industryEn : 'other';
+  const rawCompetitors = INDUSTRY_COMPETITORS[industryKey] || INDUSTRY_COMPETITORS['other'];
+
+  // 대상 도메인 + 경쟁사 전부 한번에 OPR 조회
+  const allDomains = [domain, ...rawCompetitors.map(c => c.domain)];
+  const oprData = await fetchOpenPageRankBatch(allDomains);
+
+  const { opr, rank } = oprData[domain] ?? { opr: 0, rank: null };
 
   // DA 추정 (OPR 기반)
   const da = Math.min(Math.round(opr * 10), 100);
@@ -104,15 +113,19 @@ export async function analyzeRanking(domain: string, industryEn: string): Promis
   // 방문자 추정
   const visits = estimateVisits(opr, rank);
 
-  // 산업군 경쟁사
-  const industryKey = industryEn in INDUSTRY_COMPETITORS ? industryEn : 'other';
-  const rawCompetitors = INDUSTRY_COMPETITORS[industryKey] || INDUSTRY_COMPETITORS['other'];
-
-  // 분석 사이트 위치 삽입
-  const competitors = rawCompetitors.map(c => ({
-    ...c,
-    isAbove: c.opr > opr,
-  }));
+  // 경쟁사 실시간 OPR 반영
+  const competitors = rawCompetitors.map(c => {
+    const live = oprData[c.domain];
+    const liveOpr = live?.opr ?? c.opr;
+    const liveRank = live?.rank ?? c.globalRank;
+    return {
+      ...c,
+      opr: Math.round(liveOpr * 10) / 10,
+      globalRank: liveRank ?? c.globalRank,
+      da: Math.min(Math.round(liveOpr * 10), 100),
+      isAbove: liveOpr > opr,
+    };
+  });
 
   // 산업 내 순위 추정
   const aboveCount = competitors.filter(c => c.isAbove).length;
