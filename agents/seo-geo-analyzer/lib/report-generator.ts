@@ -89,7 +89,10 @@ ${failedGeo || '없음'}
 
     const res = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: '당신은 한국어 SEO 전문 컨설턴트입니다. 반드시 모든 텍스트를 한국어로만 작성하세요. 영어, 러시아어, 중국어 등 다른 언어는 절대 사용하지 마세요. 도메인명, 브랜드명 등 고유명사는 예외입니다.' },
+        { role: 'user', content: prompt },
+      ],
       max_tokens: 1500,
       response_format: { type: 'json_object' },
     });

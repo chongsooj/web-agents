@@ -100,7 +100,10 @@ URL: ${url}
 Content: ${bodySnippet}`;
       const res = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: '반드시 모든 텍스트를 한국어로만 작성하세요. 영어·러시아어·중국어 등 다른 언어 절대 금지. 도메인명·브랜드명 등 고유명사는 예외.' },
+          { role: 'user', content: prompt },
+        ],
         max_tokens: 800,
         response_format: { type: 'json_object' },
       });
