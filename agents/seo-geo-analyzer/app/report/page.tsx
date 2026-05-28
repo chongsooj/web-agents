@@ -21,16 +21,19 @@ const TOOLTIPS: Record<string, string> = {
 };
 
 function Tip({ id }: { id: string }) {
-  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const text = TOOLTIPS[id];
   if (!text) return null;
   return (
-    <span className="relative inline-flex items-center ml-1" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+    <span className="inline-flex items-center ml-1"
+      onMouseEnter={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setPos({ x: r.left + r.width / 2, y: r.bottom + 6 }); }}
+      onMouseLeave={() => setPos(null)}>
       <span className="w-3.5 h-3.5 rounded-full bg-[#2a2a4e] border border-[#3a3a5e] text-gray-400 text-[9px] flex items-center justify-center cursor-help select-none leading-none">?</span>
-      {show && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#1a1a2e] border border-[#3a3a5e] text-gray-300 text-xs rounded-xl px-3 py-2 z-50 shadow-xl leading-relaxed pointer-events-none">
+      {pos && (
+        <span className="fixed w-60 bg-[#1a1a2e] border border-[#3a3a5e] text-gray-300 text-xs rounded-xl px-3 py-2.5 shadow-2xl leading-relaxed pointer-events-none"
+          style={{ left: pos.x, top: pos.y, transform: 'translateX(-50%)', zIndex: 9999 }}>
           {text}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#3a3a5e]" />
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#3a3a5e]" />
         </span>
       )}
     </span>
@@ -314,6 +317,126 @@ function ReportContent() {
             <div>{geo.items.map((item: any) => <ItemRow key={item.key} item={item} />)}</div>
           </div>
         </div>
+
+        {/* AI 컨설팅 보고서 */}
+        {data.report && (
+          <div className="space-y-6">
+            {/* 헤더 */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-[#2a2a4e]" />
+              <span className="text-gray-500 text-sm font-medium px-3">AI 컨설팅 보고서</span>
+              <div className="h-px flex-1 bg-[#2a2a4e]" />
+            </div>
+
+            {/* 종합 평가 */}
+            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1e] border border-[#2a2a4e] rounded-2xl p-6 flex gap-6 items-start">
+              <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black border-2 ${
+                  { A: 'border-green-400 text-green-400 bg-green-400/10', B: 'border-blue-400 text-blue-400 bg-blue-400/10', C: 'border-yellow-400 text-yellow-400 bg-yellow-400/10', D: 'border-orange-400 text-orange-400 bg-orange-400/10', F: 'border-red-400 text-red-400 bg-red-400/10' }[data.report.grade as string] || 'border-gray-400 text-gray-400'
+                }`}>{data.report.grade}</div>
+                <span className="text-xs text-gray-500">종합 등급</span>
+              </div>
+              <div>
+                <h2 className="font-bold text-lg mb-2">종합 평가</h2>
+                <p className="text-gray-300 leading-relaxed">{data.report.summary}</p>
+              </div>
+            </div>
+
+            {/* 핵심 문제점 */}
+            {data.report.issues.length > 0 && (
+              <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
+                <h2 className="font-bold text-lg mb-4">🚨 핵심 문제점</h2>
+                <div className="space-y-4">
+                  {data.report.issues.map((issue: any, i: number) => (
+                    <div key={i} className="border border-[#2a2a4e] rounded-xl p-4 hover:border-[#3a3a5e] transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                          issue.priority === '높음' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                          issue.priority === '중간' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' :
+                          'bg-gray-500/10 border-gray-500/30 text-gray-400'
+                        }`}>{issue.priority === '높음' ? '🔴' : issue.priority === '중간' ? '🟡' : '🟢'} {issue.priority}</span>
+                        <span className="font-semibold text-white">{issue.title}</span>
+                      </div>
+                      <p className="text-gray-400 text-sm mb-2">{issue.plain}</p>
+                      <div className="bg-[#0a0a0f] rounded-lg p-3 mb-2">
+                        <span className="text-xs text-orange-400 font-medium">💥 영향: </span>
+                        <span className="text-xs text-gray-300">{issue.impact}</span>
+                      </div>
+                      <div className="bg-[#0a0a0f] rounded-lg p-3">
+                        <span className="text-xs text-green-400 font-medium">✅ 해결 방법: </span>
+                        <span className="text-xs text-gray-300">{issue.fix}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 빠른 실행 항목 */}
+            {data.report.quickWins.length > 0 && (
+              <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
+                <h2 className="font-bold text-lg mb-4">⚡ 이번 주 바로 할 수 있는 것</h2>
+                <div className="space-y-3">
+                  {data.report.quickWins.map((win: string, i: number) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-[#0a0a0f] rounded-xl">
+                      <span className="w-6 h-6 rounded-full bg-[#7c6ff7]/20 border border-[#7c6ff7]/30 text-[#7c6ff7] text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i + 1}</span>
+                      <span className="text-gray-300 text-sm">{win}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 벤치마킹 */}
+            {data.report.benchmark && (
+              <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
+                <h2 className="font-bold text-lg mb-1">🏆 벤치마킹 — {data.report.benchmark.name}</h2>
+                <p className="text-gray-500 text-sm mb-4">{data.report.benchmark.domain} · {data.report.benchmark.why}</p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-gray-300 mb-2">잘하는 점</div>
+                    <ul className="space-y-2">
+                      {data.report.benchmark.strengths.map((s: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-400">
+                          <span className="text-green-400 mt-0.5">✓</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-[#0a0a0f] rounded-xl p-4">
+                    <div className="text-sm font-medium text-[#7c6ff7] mb-2">우리 사이트에 적용할 것</div>
+                    <p className="text-sm text-gray-300 leading-relaxed">{data.report.benchmark.lesson}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="bg-gradient-to-br from-[#7c6ff7]/20 to-[#5a4fd4]/10 border border-[#7c6ff7]/30 rounded-2xl p-8 text-center">
+              <div className="text-2xl mb-3">🚀</div>
+              <h2 className="text-xl font-bold mb-2">직접 개선하기 어려우신가요?</h2>
+              <p className="text-gray-400 mb-6 leading-relaxed">
+                위 보고서의 문제점을 전문가가 직접 해결해드립니다.<br />
+                무료 상담을 통해 우선순위와 예상 효과를 먼저 확인하세요.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <a href={`mailto:${process.env.NEXT_PUBLIC_COMPANY_EMAIL || 'hello@example.com'}?subject=SEO/GEO 개선 문의 - ${domain}&body=안녕하세요. ${domain} 분석 보고서를 보고 문의드립니다.`}
+                  className="bg-[#7c6ff7] hover:bg-[#5a4fd4] text-white font-semibold px-8 py-3 rounded-xl transition-colors">
+                  무료 상담 신청하기
+                </a>
+                {process.env.NEXT_PUBLIC_COMPANY_URL && (
+                  <a href={process.env.NEXT_PUBLIC_COMPANY_URL} target="_blank" rel="noopener noreferrer"
+                    className="bg-[#1a1a2e] border border-[#2a2a4e] hover:border-[#7c6ff7] text-white font-semibold px-8 py-3 rounded-xl transition-colors">
+                    회사 소개 보기
+                  </a>
+                )}
+              </div>
+              {process.env.NEXT_PUBLIC_COMPANY_NAME && (
+                <p className="text-gray-600 text-xs mt-4">{process.env.NEXT_PUBLIC_COMPANY_NAME}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 푸터 */}
         <div className="text-center text-gray-600 text-xs pb-8">

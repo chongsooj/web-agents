@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeSeo } from '@/lib/seo-analyzer';
 import { analyzeGeo } from '@/lib/geo-analyzer';
 import { analyzeRanking } from '@/lib/ranking';
+import { generateReport } from '@/lib/report-generator';
 
 export const maxDuration = 30;
 
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
 
   const overallScore = Math.round((seo.score * 0.45) + (geo.score * 0.35) + (rankingWithIndustry.domainAuthority * 0.2));
 
+  // Groq로 컨설팅 보고서 생성
+  const report = process.env.GROQ_API_KEY
+    ? await generateReport(targetUrl, seo, geo, rankingWithIndustry, process.env.GROQ_API_KEY)
+    : null;
+
   // PageSpeed 추가 (Google API, 키 없으면 스킵)
   let performance = { mobile: 0, desktop: 0, lcp: 0, cls: 0, fid: 0 };
   if (process.env.GOOGLE_PAGESPEED_API_KEY) {
@@ -71,5 +77,6 @@ export async function POST(req: NextRequest) {
     geo,
     ranking: rankingWithIndustry,
     performance,
+    report,
   });
 }
