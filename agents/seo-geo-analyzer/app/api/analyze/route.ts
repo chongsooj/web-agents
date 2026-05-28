@@ -32,15 +32,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '사이트에 접근할 수 없습니다. URL을 확인해주세요.' }, { status: 502 });
   }
 
-  // 병렬 분석
-  const [seo, geo, ranking] = await Promise.all([
+  // SEO + GEO 병렬 분석 (Gemini로 산업군+경쟁사 한번에)
+  const [seo, geo] = await Promise.all([
     analyzeSeo(targetUrl, html),
-    analyzeGeo(targetUrl, html, process.env.GOOGLE_GEMINI_API_KEY),
-    analyzeRanking(domain, 'other'),
+    analyzeGeo(targetUrl, html, process.env.GROQ_API_KEY),
   ]);
 
-  // ranking에 industry 반영
-  const rankingWithIndustry = await analyzeRanking(domain, geo.industryEn);
+  // Gemini가 추천한 경쟁사로 OPR 조회
+  const rankingWithIndustry = await analyzeRanking(domain, geo.industryEn, geo.competitors);
 
   const overallScore = Math.round((seo.score * 0.45) + (geo.score * 0.35) + (rankingWithIndustry.domainAuthority * 0.2));
 

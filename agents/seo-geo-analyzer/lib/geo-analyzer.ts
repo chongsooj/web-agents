@@ -12,6 +12,7 @@ export interface GeoResult {
   industry: string;
   industryEn: string;
   summary: string;
+  competitors: { domain: string; name: string }[];
 }
 
 // GEO: Generative Engine Optimization — AI 검색에 얼마나 최적화되어 있는지
@@ -70,27 +71,40 @@ export async function analyzeGeo(url: string, html: string, apiKey?: string): Pr
 
   const score = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length);
 
-  // Industry classification via Gemini Flash
+  // Groq: 산업군 분류 + 유사 경쟁사 한번에
   let industry = '기타', industryEn = 'other', summary = '';
+  let competitors: { domain: string; name: string }[] = [];
   if (apiKey) {
     try {
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const bodySnippet = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 1000);
-      const prompt = `다음 웹사이트 내용을 보고 JSON으로만 답하세요. 절대 다른 텍스트 없이 JSON만:
-{"industry":"한국어 산업명(예:전자상거래,금융,의료,교육,여행,부동산,음식,패션,IT/SaaS,미디어,법률,제조)","industryEn":"english_key","summary":"사이트 한 줄 설명(한국어 30자 이내)"}
+      const Groq = (await import('groq-sdk')).default;
+      const groq = new Groq({ apiKey });
+      const bodySnippet = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 800);
+      const prompt = `Analyze the following website and respond with JSON only. No other text:
+{
+  "industry": "Korean industry name (전자상거래/금융/의료/교육/여행/음식/IT·SaaS/미디어/기타)",
+  "industryEn": "one of: ecommerce|finance|health|education|travel|food|it_saas|media|other",
+  "summary": "one-line Korean description under 25 chars",
+  "competitors": [
+    {"domain":"example.com","name":"Site Name"},
+    ... 8 similar competitor websites (exclude the target site itself)
+  ]
+}
 
 URL: ${url}
-내용: ${bodySnippet}`;
-      const result = await model.generateContent(prompt);
-      const text = result.response.text().trim().replace(/^```json\n?|```$/g, '');
-      const parsed = JSON.parse(text);
+Content: ${bodySnippet}`;
+      const res = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 600,
+        response_format: { type: 'json_object' },
+      });
+      const parsed = JSON.parse(res.choices[0].message.content || '{}');
       industry = parsed.industry || '기타';
       industryEn = parsed.industryEn || 'other';
       summary = parsed.summary || '';
+      competitors = Array.isArray(parsed.competitors) ? parsed.competitors.slice(0, 8) : [];
     } catch {}
   }
 
-  return { score, items, industry, industryEn, summary };
+  return { score, items, industry, industryEn, summary, competitors };
 }
