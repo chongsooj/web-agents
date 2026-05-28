@@ -3,6 +3,40 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
+const TOOLTIPS: Record<string, string> = {
+  seo: '검색엔진 최적화(Search Engine Optimization). Google·Naver 등 검색엔진이 사이트를 잘 찾고 노출할 수 있도록 최적화하는 작업.',
+  geo: '생성형 AI 검색 최적화(Generative Engine Optimization). ChatGPT·Perplexity·Gemini 같은 AI가 답변을 생성할 때 내 사이트를 인용하도록 최적화하는 작업.',
+  opr: 'OpenPageRank. 도메인이 얼마나 많은 외부 링크를 받는지 측정하는 무료 지표. 0~10 점수로 표현.',
+  da: '도메인 권위(Domain Authority). 검색엔진에서 해당 도메인이 얼마나 신뢰받는지 나타내는 점수(0~100). OPR 기반으로 추정.',
+  eateat: 'E-E-A-T: 경험(Experience)·전문성(Expertise)·권위(Authoritativeness)·신뢰(Trustworthiness). Google이 콘텐츠 품질을 평가하는 핵심 기준.',
+  canonical: '캐노니컬 태그. 중복 페이지가 있을 때 검색엔진에 "이 URL이 대표 페이지입니다"를 알려주는 HTML 태그.',
+  og: 'Open Graph. SNS(카카오톡·페이스북 등)에 링크 공유 시 제목·이미지·설명이 예쁘게 표시되도록 하는 메타 태그.',
+  schema: '구조화 데이터. 검색엔진이 콘텐츠를 이해하도록 JSON-LD 형식으로 작성한 부가 정보. 검색 결과에 별점·FAQ·가격 등 리치 스니펫으로 표시됨.',
+  jsonld: 'JSON-LD. 구조화 데이터를 작성하는 표준 형식. <script type="application/ld+json"> 태그 안에 JSON으로 작성.',
+  faq: 'FAQ 스키마. 자주 묻는 질문을 구조화 데이터로 표시하면 AI 검색이 답변 생성 시 인용할 가능성이 높아짐.',
+  robots: 'robots.txt. 검색엔진 크롤러에게 "어떤 페이지를 수집해도 되는지" 알려주는 텍스트 파일.',
+  sitemap: 'sitemap.xml. 사이트의 모든 페이지 목록을 검색엔진에 제출하는 XML 파일. 새 페이지 색인을 빠르게 도움.',
+  lcp: 'LCP(Largest Contentful Paint). 페이지에서 가장 큰 콘텐츠가 로드되는 시간. 2.5초 이내가 좋음.',
+  cls: 'CLS(Cumulative Layout Shift). 페이지 로딩 중 레이아웃이 얼마나 튀는지 측정. 0.1 이하가 좋음.',
+};
+
+function Tip({ id }: { id: string }) {
+  const [show, setShow] = useState(false);
+  const text = TOOLTIPS[id];
+  if (!text) return null;
+  return (
+    <span className="relative inline-flex items-center ml-1" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <span className="w-3.5 h-3.5 rounded-full bg-[#2a2a4e] border border-[#3a3a5e] text-gray-400 text-[9px] flex items-center justify-center cursor-help select-none leading-none">?</span>
+      {show && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#1a1a2e] border border-[#3a3a5e] text-gray-300 text-xs rounded-xl px-3 py-2 z-50 shadow-xl leading-relaxed pointer-events-none">
+          {text}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#3a3a5e]" />
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ScoreRing({ score, size = 120, color = '#7c6ff7' }: { score: number; size?: number; color?: string }) {
   const r = (size - 12) / 2;
   const circ = 2 * Math.PI * r;
@@ -45,12 +79,17 @@ function StatusBadge({ status }: { status: 'good' | 'warning' | 'fail' }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full border ${s.bg}`}>{s.label}</span>;
 }
 
+const ITEM_TIP: Record<string, string> = {
+  canonical: 'canonical', og: 'og', schema: 'schema', ld_json: 'jsonld',
+  faq: 'faq', robots: 'robots', sitemap: 'sitemap', author: 'eateat',
+};
+
 function ItemRow({ item }: { item: { key: string; label: string; score: number; status: 'good' | 'warning' | 'fail'; detail: string } }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-[#2a2a4e] last:border-0">
       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.status === 'good' ? '#4caf7d' : item.status === 'warning' ? '#f59e0b' : '#e55' }} />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-white">{item.label}</div>
+        <div className="text-sm font-medium text-white flex items-center">{item.label}<Tip id={ITEM_TIP[item.key] || ''} /></div>
         <div className="text-xs text-gray-500 truncate mt-0.5">{item.detail}</div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
@@ -148,13 +187,13 @@ function ReportContent() {
             {geo.summary && <p className="text-gray-400 mb-4">{geo.summary}</p>}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: '글로벌 순위', value: ranking.globalRank ? `#${ranking.globalRank.toLocaleString()}` : '데이터 없음' },
-                { label: '한국 순위', value: ranking.koreaRank ? `#${ranking.koreaRank.toLocaleString()}` : '데이터 없음' },
-                { label: '월 방문자', value: ranking.estimatedMonthlyVisits },
-                { label: '도메인 권위', value: `${ranking.domainAuthority} / 100` },
+                { label: '글로벌 순위', value: ranking.globalRank ? `#${ranking.globalRank.toLocaleString()}` : '데이터 없음', tip: '' },
+                { label: '한국 순위', value: ranking.koreaRank ? `#${ranking.koreaRank.toLocaleString()}` : '데이터 없음', tip: '' },
+                { label: '월 방문자', value: ranking.estimatedMonthlyVisits, tip: '' },
+                { label: '도메인 권위', value: `${ranking.domainAuthority} / 100`, tip: 'da' },
               ].map(s => (
                 <div key={s.label} className="bg-[#0a0a0f] rounded-xl p-3">
-                  <div className="text-gray-500 text-xs mb-1">{s.label}</div>
+                  <div className="text-gray-500 text-xs mb-1 flex items-center">{s.label}{s.tip && <Tip id={s.tip} />}</div>
                   <div className="font-bold text-white">{s.value}</div>
                 </div>
               ))}
@@ -205,7 +244,7 @@ function ReportContent() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <p className="text-xs text-gray-600 mt-2">* OPR(OpenPageRank) 기준 · 높을수록 권위 있는 도메인</p>
+            <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">* OPR(OpenPageRank) 기준 · 높을수록 권위 있는 도메인<Tip id="opr" /></p>
           </div>
         </div>
 
@@ -224,8 +263,8 @@ function ReportContent() {
                 <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-[#2a2a4e]">
                   <th className="text-left pb-3 w-8">#</th>
                   <th className="text-left pb-3">사이트</th>
-                  <th className="text-right pb-3">OPR</th>
-                  <th className="text-right pb-3">DA</th>
+                  <th className="text-right pb-3"><span className="flex items-center justify-end gap-0.5">OPR<Tip id="opr" /></span></th>
+                  <th className="text-right pb-3"><span className="flex items-center justify-end gap-0.5">DA<Tip id="da" /></span></th>
                   <th className="text-right pb-3">{rankView === 'korea' ? '한국 순위' : '글로벌 순위'}</th>
                   <th className="text-right pb-3">위치</th>
                 </tr>
@@ -264,13 +303,13 @@ function ReportContent() {
         {/* SEO 항목 */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
-            <h2 className="font-bold text-lg mb-1">🔍 SEO 상세</h2>
+            <h2 className="font-bold text-lg mb-1 flex items-center">🔍 SEO 상세<Tip id="seo" /></h2>
             <p className="text-gray-500 text-sm mb-4">검색엔진 최적화 점수: <span className="text-white font-bold">{seo.score}/100</span></p>
             <div>{seo.items.map((item: any) => <ItemRow key={item.key} item={item} />)}</div>
           </div>
 
           <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
-            <h2 className="font-bold text-lg mb-1">🤖 GEO 상세</h2>
+            <h2 className="font-bold text-lg mb-1 flex items-center">🤖 GEO 상세<Tip id="geo" /></h2>
             <p className="text-gray-500 text-sm mb-4">AI 검색 최적화 점수: <span className="text-white font-bold">{geo.score}/100</span></p>
             <div>{geo.items.map((item: any) => <ItemRow key={item.key} item={item} />)}</div>
           </div>
