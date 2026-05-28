@@ -483,27 +483,29 @@ function ReportContent() {
             )}
 
             {/* CTA */}
-            <div className="bg-gradient-to-br from-[#7c6ff7]/20 to-[#5a4fd4]/10 border border-[#7c6ff7]/30 rounded-2xl p-8 text-center">
-              <div className="text-2xl mb-3">🚀</div>
+            <div className="bg-gradient-to-br from-[#FEE500]/10 to-[#7c6ff7]/10 border border-[#FEE500]/20 rounded-2xl p-8 text-center">
+              <div className="text-3xl mb-3">💬</div>
               <h2 className="text-xl font-bold mb-2">직접 개선하기 어려우신가요?</h2>
-              <p className="text-gray-400 mb-6 leading-relaxed">
-                위 보고서의 문제점을 전문가가 직접 해결해드립니다.<br />
-                무료 상담을 통해 우선순위와 예상 효과를 먼저 확인하세요.
+              <p className="text-gray-400 mb-2 leading-relaxed">
+                위 보고서의 문제점을 전문가가 직접 해결해드립니다.
               </p>
+              <p className="text-gray-500 text-sm mb-6">카카오톡으로 문의하시면 <span className="text-white font-medium">무료로 우선순위와 예상 효과</span>를 먼저 확인해드립니다.</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <a href={`mailto:${process.env.NEXT_PUBLIC_COMPANY_EMAIL || 'hello@example.com'}?subject=SEO/GEO 개선 문의 - ${domain}&body=안녕하세요. ${domain} 분석 보고서를 보고 문의드립니다.`}
-                  className="bg-[#7c6ff7] hover:bg-[#5a4fd4] text-white font-semibold px-8 py-3 rounded-xl transition-colors">
-                  무료 상담 신청하기
+                <a href={process.env.NEXT_PUBLIC_COMPANY_KAKAO_URL || 'http://pf.kakao.com/_IQhQn/chat'}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-[#FEE500] hover:bg-[#e6ce00] text-[#3A1D1D] font-bold px-8 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#FEE500]/10">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.477 3 2 6.477 2 10.9c0 2.8 1.6 5.3 4 6.8l-.8 3.1 3.6-2.3c1 .2 2 .3 3.2.3 5.523 0 10-3.477 10-7.9S17.523 3 12 3z"/></svg>
+                  카카오톡으로 무료 상담받기
                 </a>
                 {process.env.NEXT_PUBLIC_COMPANY_URL && (
                   <a href={process.env.NEXT_PUBLIC_COMPANY_URL} target="_blank" rel="noopener noreferrer"
-                    className="bg-[#1a1a2e] border border-[#2a2a4e] hover:border-[#7c6ff7] text-white font-semibold px-8 py-3 rounded-xl transition-colors">
+                    className="inline-flex items-center justify-center bg-[#1a1a2e] border border-[#2a2a4e] hover:border-[#7c6ff7] text-white font-semibold px-8 py-3.5 rounded-xl transition-colors">
                     회사 소개 보기
                   </a>
                 )}
               </div>
               {process.env.NEXT_PUBLIC_COMPANY_NAME && (
-                <p className="text-gray-600 text-xs mt-4">{process.env.NEXT_PUBLIC_COMPANY_NAME}</p>
+                <p className="text-gray-600 text-xs mt-5">{process.env.NEXT_PUBLIC_COMPANY_NAME}</p>
               )}
             </div>
           </div>
