@@ -110,14 +110,12 @@ function ReportContent() {
     { subject: '신뢰', score: Math.round((seo.items.find((i: any) => i.key === 'https')?.score || 0) * 0.4 + (ranking.openPageRank * 6)) },
   ];
 
-  const competitorData = ranking.competitors.map((c: any) => ({
-    name: c.name,
-    opr: c.opr,
-    rank: rankView === 'korea' ? c.koreaRank : c.globalRank,
-    isTarget: false,
-  }));
-  const targetBar = { name: domain, opr: ranking.openPageRank, rank: rankView === 'korea' ? ranking.koreaRank : ranking.globalRank, isTarget: true };
-  const allBars = [...competitorData, targetBar].sort((a, b) => (a.opr > b.opr ? -1 : 1));
+  const activeCompetitors = rankView === 'korea'
+    ? (ranking.competitorsKorea?.length > 0 ? ranking.competitorsKorea : ranking.competitors)
+    : (ranking.competitorsGlobal?.length > 0 ? ranking.competitorsGlobal : ranking.competitors);
+  const competitorData = activeCompetitors.map((c: any) => ({ name: c.name, opr: c.opr, isTarget: false }));
+  const targetBar = { name: domain, opr: ranking.openPageRank, isTarget: true };
+  const allBars = [...competitorData, targetBar].sort((a: any, b: any) => b.opr - a.opr);
 
   const overallColor = overallScore >= 80 ? '#4caf7d' : overallScore >= 50 ? '#f59e0b' : '#e55';
 
@@ -233,7 +231,7 @@ function ReportContent() {
                 </tr>
               </thead>
               <tbody>
-                {[...ranking.competitors, {
+                {[...activeCompetitors, {
                   domain, name: domain, opr: ranking.openPageRank, da: ranking.domainAuthority,
                   globalRank: ranking.globalRank, koreaRank: ranking.koreaRank, isAbove: false, isTarget: true,
                 }].sort((a: any, b: any) => b.opr - a.opr).map((c: any, i: number) => (

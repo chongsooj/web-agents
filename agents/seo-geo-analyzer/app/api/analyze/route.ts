@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
     analyzeGeo(targetUrl, html, process.env.GROQ_API_KEY),
   ]);
 
-  // Gemini가 추천한 경쟁사로 OPR 조회
-  const rankingWithIndustry = await analyzeRanking(domain, geo.industryEn, geo.competitors);
+  // Groq가 추천한 한국/글로벌 경쟁사로 OPR 조회
+  const rankingWithIndustry = await analyzeRanking(domain, geo.industryEn, geo.competitorsKorea, geo.competitorsGlobal);
 
   const overallScore = Math.round((seo.score * 0.45) + (geo.score * 0.35) + (rankingWithIndustry.domainAuthority * 0.2));
 

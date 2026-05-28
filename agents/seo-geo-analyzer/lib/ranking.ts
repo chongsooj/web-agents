@@ -10,6 +10,8 @@ export interface RankingResult {
   industryRank: number | null;
   industryTotal: number;
   competitors: Competitor[];
+  competitorsKorea: Competitor[];
+  competitorsGlobal: Competitor[];
 }
 
 export interface Competitor {
@@ -41,20 +43,8 @@ async function fetchOpenPageRankBatch(domains: string[]): Promise<Record<string,
   return result;
 }
 
-export async function analyzeRanking(domain: string, industryEn: string, geminiCompetitors?: { domain: string; name: string }[]): Promise<RankingResult> {
-  // Gemini가 추천한 경쟁사 사용, 없으면 폴백
-  const competitorMeta = (geminiCompetitors && geminiCompetitors.length > 0)
-    ? geminiCompetitors
-    : (FALLBACK_COMPETITORS[industryEn] ?? FALLBACK_COMPETITORS['other']);
-
-  // 대상 + 경쟁사 전부 OPR 배치 조회
-  const allDomains = [domain, ...competitorMeta.map(c => c.domain)];
-  const oprData = await fetchOpenPageRankBatch(allDomains);
-
-  const { opr, rank } = oprData[domain] ?? { opr: 0, rank: null };
-  const da = Math.min(Math.round(opr * 10), 100);
-
-  const competitors: Competitor[] = competitorMeta.map(c => {
+function buildCompetitors(metas: { domain: string; name: string }[], oprData: Record<string, { opr: number; rank: number | null }>, targetOpr: number): Competitor[] {
+  return metas.map(c => {
     const live = oprData[c.domain] ?? { opr: 0, rank: null };
     return {
       domain: c.domain,
@@ -63,11 +53,33 @@ export async function analyzeRanking(domain: string, industryEn: string, geminiC
       koreaRank: live.rank ? Math.max(1, Math.round(live.rank * 0.15)) : null,
       da: Math.min(Math.round(live.opr * 10), 100),
       opr: Math.round(live.opr * 10) / 10,
-      isAbove: live.opr > opr,
+      isAbove: live.opr > targetOpr,
     };
-  }).filter(c => c.opr > 0 || c.domain); // OPR 0이어도 이름은 표시
+  });
+}
 
-  const aboveCount = competitors.filter(c => c.isAbove).length;
+export async function analyzeRanking(
+  domain: string,
+  industryEn: string,
+  koreaList?: { domain: string; name: string }[],
+  globalList?: { domain: string; name: string }[],
+): Promise<RankingResult> {
+  const fallback = FALLBACK_COMPETITORS[industryEn] ?? FALLBACK_COMPETITORS['other'];
+  const koreaMeta = (koreaList && koreaList.length > 0) ? koreaList : fallback;
+  const globalMeta = (globalList && globalList.length > 0) ? globalList : fallback;
+
+  // 대상 + 한국 + 글로벌 전부 OPR 배치 조회
+  const allDomains = [...new Set([domain, ...koreaMeta.map(c => c.domain), ...globalMeta.map(c => c.domain)])];
+  const oprData = await fetchOpenPageRankBatch(allDomains);
+
+  const { opr, rank } = oprData[domain] ?? { opr: 0, rank: null };
+  const da = Math.min(Math.round(opr * 10), 100);
+
+  const competitorsKorea = buildCompetitors(koreaMeta, oprData, opr);
+  const competitorsGlobal = buildCompetitors(globalMeta, oprData, opr);
+  const competitors = competitorsKorea; // 기본값 (레거시 호환)
+
+  const aboveCount = competitorsKorea.filter(c => c.isAbove).length;
   const koreaRank = rank ? Math.max(1, Math.round(rank * 0.15)) : null;
 
   return {
@@ -78,8 +90,10 @@ export async function analyzeRanking(domain: string, industryEn: string, geminiC
     globalRank: rank,
     koreaRank,
     industryRank: aboveCount + 1,
-    industryTotal: competitors.length + 1,
+    industryTotal: competitorsKorea.length + 1,
     competitors,
+    competitorsKorea,
+    competitorsGlobal,
   };
 }
 

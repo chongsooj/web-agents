@@ -12,7 +12,8 @@ export interface GeoResult {
   industry: string;
   industryEn: string;
   summary: string;
-  competitors: { domain: string; name: string }[];
+  competitorsKorea: { domain: string; name: string }[];
+  competitorsGlobal: { domain: string; name: string }[];
 }
 
 // GEO: Generative Engine Optimization — AI 검색에 얼마나 최적화되어 있는지
@@ -71,9 +72,10 @@ export async function analyzeGeo(url: string, html: string, apiKey?: string): Pr
 
   const score = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length);
 
-  // Groq: 산업군 분류 + 유사 경쟁사 한번에
+  // Groq: 산업군 분류 + 한국/글로벌 경쟁사 한번에
   let industry = '기타', industryEn = 'other', summary = '';
-  let competitors: { domain: string; name: string }[] = [];
+  let competitorsKorea: { domain: string; name: string }[] = [];
+  let competitorsGlobal: { domain: string; name: string }[] = [];
   if (apiKey) {
     try {
       const Groq = (await import('groq-sdk')).default;
@@ -84,9 +86,13 @@ export async function analyzeGeo(url: string, html: string, apiKey?: string): Pr
   "industry": "Korean industry name (전자상거래/금융/의료/교육/여행/음식/IT·SaaS/미디어/기타)",
   "industryEn": "one of: ecommerce|finance|health|education|travel|food|it_saas|media|other",
   "summary": "one-line Korean description under 25 chars",
-  "competitors": [
+  "competitorsKorea": [
+    {"domain":"example.co.kr","name":"사이트명"},
+    ... 6 similar Korean competitor websites (Korean market focused, exclude the target site)
+  ],
+  "competitorsGlobal": [
     {"domain":"example.com","name":"Site Name"},
-    ... 8 similar competitor websites (exclude the target site itself)
+    ... 6 similar global competitor websites (international, exclude the target site)
   ]
 }
 
@@ -95,16 +101,17 @@ Content: ${bodySnippet}`;
       const res = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600,
+        max_tokens: 800,
         response_format: { type: 'json_object' },
       });
       const parsed = JSON.parse(res.choices[0].message.content || '{}');
       industry = parsed.industry || '기타';
       industryEn = parsed.industryEn || 'other';
       summary = parsed.summary || '';
-      competitors = Array.isArray(parsed.competitors) ? parsed.competitors.slice(0, 8) : [];
+      competitorsKorea = Array.isArray(parsed.competitorsKorea) ? parsed.competitorsKorea.slice(0, 6) : [];
+      competitorsGlobal = Array.isArray(parsed.competitorsGlobal) ? parsed.competitorsGlobal.slice(0, 6) : [];
     } catch {}
   }
 
-  return { score, items, industry, industryEn, summary, competitors };
+  return { score, items, industry, industryEn, summary, competitorsKorea, competitorsGlobal };
 }
