@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Script from 'next/script';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 const TOOLTIPS: Record<string, string> = {
@@ -51,6 +52,59 @@ function ScoreRing({ score, size = 120, color = '#7c6ff7' }: { score: number; si
         strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
         style={{ transition: 'stroke-dasharray 1s ease' }} />
     </svg>
+  );
+}
+
+function ShareButtons({ url, domain, score }: { url: string; domain: string; score: number }) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = `${domain} SEO/GEO 분석 완료 — 종합 점수 ${score}점\n${shareUrl}`;
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareKakao = () => {
+    const kakao = (window as any).Kakao;
+    if (kakao?.isInitialized()) {
+      kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: `${domain} SEO/GEO 분석 결과`,
+          description: `종합 점수 ${score}점 · AI 검색 최적화 리포트`,
+          imageUrl: 'https://seo-geo-analyzer-xi.vercel.app/og.png',
+          link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
+        },
+        buttons: [{ title: '리포트 보기', link: { mobileWebUrl: shareUrl, webUrl: shareUrl } }],
+      });
+    } else {
+      // SDK 없을 때 모바일 딥링크 fallback
+      window.open(`https://sharer.kakao.com/talk/friends/picker/easylink?app_key=KAKAO_APP_KEY&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    }
+  };
+
+  const shareTwitter = () => {
+    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={copyLink}
+        className="flex items-center gap-1.5 text-xs bg-[#1a1a2e] border border-[#2a2a4e] hover:border-[#7c6ff7] text-gray-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+        {copied ? '✓ 복사됨' : '🔗 링크 복사'}
+      </button>
+      <button onClick={shareKakao}
+        className="flex items-center gap-1.5 text-xs bg-[#FEE500] hover:bg-[#e6ce00] text-[#3A1D1D] font-medium px-3 py-1.5 rounded-lg transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.477 3 2 6.477 2 10.9c0 2.8 1.6 5.3 4 6.8l-.8 3.1 3.6-2.3c1 .2 2 .3 3.2.3 5.523 0 10-3.477 10-7.9S17.523 3 12 3z"/></svg>
+        카카오톡
+      </button>
+      <button onClick={shareTwitter}
+        className="flex items-center gap-1.5 text-xs bg-[#1a1a2e] border border-[#2a2a4e] hover:border-[#1d9bf0] text-gray-300 hover:text-[#1d9bf0] px-3 py-1.5 rounded-lg transition-colors">
+        𝕏 트위터
+      </button>
+    </div>
   );
 }
 
@@ -163,14 +217,20 @@ function ReportContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
+      <Script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        onLoad={() => {
+          const kakao = (window as any).Kakao;
+          const key = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+          if (kakao && key && !kakao.isInitialized()) kakao.init(key);
+        }} />
       {/* 상단 바 */}
-      <div className="sticky top-0 z-50 bg-[#0a0a0f]/90 backdrop-blur border-b border-[#2a2a4e] px-6 py-3 flex items-center gap-4">
-        <button onClick={() => router.push('/')} className="text-gray-400 hover:text-white transition-colors text-sm">← 홈</button>
+      <div className="sticky top-0 z-50 bg-[#0a0a0f]/90 backdrop-blur border-b border-[#2a2a4e] px-4 py-3 flex items-center gap-3">
+        <button onClick={() => router.push('/')} className="text-gray-400 hover:text-white transition-colors text-sm flex-shrink-0">← 홈</button>
         <span className="text-gray-600">|</span>
-        <span className="text-sm text-gray-400 truncate">{data.url}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-gray-600">산업군:</span>
-          <span className="text-xs bg-[#7c6ff7]/15 border border-[#7c6ff7]/30 text-[#7c6ff7] px-2 py-1 rounded-full">{geo.industry}</span>
+        <span className="text-sm text-gray-400 truncate hidden sm:block">{data.url}</span>
+        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+          <span className="text-xs bg-[#7c6ff7]/15 border border-[#7c6ff7]/30 text-[#7c6ff7] px-2 py-1 rounded-full hidden sm:inline">{geo.industry}</span>
+          <ShareButtons url={data.url} domain={domain} score={overallScore} />
         </div>
       </div>
 
@@ -284,7 +344,14 @@ function ReportContent() {
                         <span className={`font-medium ${c.isTarget ? 'text-[#7c6ff7]' : 'text-white'}`}>{c.name}</span>
                         {c.isTarget && <span className="text-xs bg-[#7c6ff7]/20 text-[#7c6ff7] px-1.5 py-0.5 rounded">분석 대상</span>}
                       </div>
-                      <span className="text-xs text-gray-500">{c.domain}</span>
+                      {c.isTarget ? (
+                        <span className="text-xs text-gray-500">{c.domain}</span>
+                      ) : (
+                        <a href={`https://${c.domain}`} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-gray-500 hover:text-[#7c6ff7] transition-colors flex items-center gap-0.5 w-fit">
+                          {c.domain} <span className="text-[10px]">↗</span>
+                        </a>
+                      )}
                     </td>
                     <td className="py-3 text-right font-mono">{c.opr}</td>
                     <td className="py-3 text-right font-mono">{c.da}</td>
@@ -391,7 +458,11 @@ function ReportContent() {
             {data.report.benchmark && (
               <div className="bg-[#1a1a2e] border border-[#2a2a4e] rounded-2xl p-6">
                 <h2 className="font-bold text-lg mb-1">🏆 벤치마킹 — {data.report.benchmark.name}</h2>
-                <p className="text-gray-500 text-sm mb-4">{data.report.benchmark.domain} · {data.report.benchmark.why}</p>
+                <p className="text-gray-500 text-sm mb-4">
+                  <a href={`https://${data.report.benchmark.domain}`} target="_blank" rel="noopener noreferrer"
+                    className="hover:text-[#7c6ff7] transition-colors">{data.report.benchmark.domain} ↗</a>
+                  {' · '}{data.report.benchmark.why}
+                </p>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <div className="text-sm font-medium text-gray-300 mb-2">잘하는 점</div>
